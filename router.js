@@ -1,5 +1,11 @@
+const { response } = require("express");
 const express = require("express");
+
 const router = express.Router();
+
+const AuthenticationService = require('./auth');
+const Post = require('./models/post');
+const User = require('./models/user');
 
 router.get("/", (request, response) => {
   const mysession = request.session;
@@ -15,7 +21,7 @@ router.get("/admin", (request, response) => {
   const session = request.session;
 
   if (session.email) {
-    response.render("admin", { email: session.email });
+    return response.render("admin", { email: session.email });
   }
 
   return response.redirect("/login");
@@ -32,7 +38,14 @@ router.get("/login", (request, response) => {
 });
 
 router.post("/login", (request, response) => {
-  request.session.email = request.body.email;
+  const isAuthenticated = AuthenticationService.authenticate(
+    request.body);
+
+  if (!isAuthenticated) {
+    return response.render('login', {error: 'Authentication failed'});
+  }
+
+  request.session.email = request.body.email
   return response.redirect("/admin");
 });
 
@@ -54,25 +67,49 @@ router.use((request, response, next) => {
 });
 
 router.post(POST_ENDPOINT, (request, response) => {
-  const post = request.body;
-  // TODO Save it somewhere
-  response.send("POST");
+  const postObj = new Post(request.body);
+  postObj.save((err) => err ? console.log(err) : null)
+  response.send(JSON.stringify(postObj));
 });
 
 router.get(POST_ENDPOINT, (request, response) => {
+  Post.find({
+  }).then(data => {
+       console.log(data);
+       return response.send(data);
+  }).catch(err => {
+      console.log(err);
+      response.status(400);
+      return response.send({'error': 'Could\'t connect to Database'});
+  });
+});
+
+
+router.get(`${POST_ENDPOINT}/:slug`, (request, response) => {
+  Post.findOne({ slug: request.params.slug })
+    .then(data => console.log(data))
+    .catch(err => console.log(err));
   response.send("GET");
 });
 
-router.get(`${POST_ENDPOINT}/:id`, (request, response) => {
-  response.send("GET");
-});
-
-router.put(`${POST_ENDPOINT}/:id`, (request, response) => {
+router.put(`${POST_ENDPOINT}/:slug`, (request, response) => {
+  Post.findOneAndUpdate({ slug: request.params.slug }, request.body).then(
+    (data) => {
+      response.send(data);
+    }).catch(err => {
+      response.status(400);
+      response.send({'error': err})
+    })
   response.send("PUT");
 });
 
 router.delete(`${POST_ENDPOINT}/:id`, (request, response) => {
-  response.send(`DELETE ${request.params.id}`);
+  Post.findOneAndDelete({ slug: request.params. slug }).then(
+    () => {
+      response.status(204);
+      response.end();
+    }
+  );
 });
 
 module.exports = router;

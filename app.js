@@ -2,13 +2,37 @@ const { response, request } = require("express");
 const express = require("express");
 const bodyParser = require("body-parser");
 const expressSession = require("express-session");
+const mongoose = require('mongoose');
 
 const router = require("./router");
 const session = require("express-session");
+const { Mongoose } = require("mongoose");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET = process.env.SECRET || "verysecret";
+
+/* const MongoClient = require('mongodb').MongoClient;
+MongoClient.connect(process.env.MONGO_URL, {useUnifiedTopology: true}, (err, client) => {
+    if (err) {
+        console.log(err);
+    }
+    const mongoClient = client;
+    console.log('Connected to Mongo');
+}) 
+const MongoClient = require('mongodb').MongoClient;
+MongoClient.connect(process.env.MONGO_URL, {useUnifiedTopology: true})
+.then(client => console.log('Connected to Database'))
+.catch(error => console.log('Error de mongo'));
+*/
+mongoose.connect(
+    process.env.MONGO_URL,
+    {
+        useNewUrlParser:true,
+        useUnifiedTopology:true,
+        useFindAndModify: true,
+        useCreateIndex: true
+    }).catch(err => console.log(err));
 
 app.set("view engine", "pug");
 app.use(session({ secret: SECRET, saveUninitialized: true, resave: true }));
