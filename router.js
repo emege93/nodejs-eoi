@@ -1,12 +1,12 @@
-const { response } = require("express");
 const express = require("express");
+const StatusCodes = require("http-status-codes").StatusCodes;
 
 const router = express.Router();
 
-const ApiError = require('./api_erros')
+const ApiErrorResponse = require("./api_errors");
 const AuthenticationService = require("./auth");
 const Post = require("./models/post");
-const User = require("./models/user");
+
 
 router.get("/", (request, response) => {
   const mysession = request.session;
@@ -78,10 +78,9 @@ router.get(POST_ENDPOINT, (request, response) => {
       console.log(data);
       return response.send(data);
     })
-    .catch((err) => {
-      console.log(err);
-      response.status(400);
-      return response.send({ error: "Could't connect to Database" });
+    .catch(() => {
+      const apiError = new ApiErrorResponse(response, StatusCodes.BAD_REQUEST);
+      apiError.sendErrorResponse();
     });
 });
 
@@ -95,29 +94,40 @@ router.get(`${POST_ENDPOINT}/:slug`, (request, response) => {
       return response.send(data);
     })
     .catch(() => {
-      const statusCode = 404;
-      response.status(statusCode);
-      response.send(ApiError.getErrorMessage(statusCode));
+      const apiError = new ApiErrorResponse(response, StatusCodes.NOT_FOUND);
+      apiError.sendErrorResponse();
     });
 });
 
 router.put(`${POST_ENDPOINT}/:slug`, (request, response) => {
   Post.findOneAndUpdate({ slug: request.params.slug }, request.body)
     .then((data) => {
+      if (!data) {
+        throw new Error("Not found");
+      }
+
       response.send(data);
     })
-    .catch((err) => {
-      const statusCode = 400;
-      response.status(statusCode);
-      response.send(ApiError.getErrorMessage(statusCode));
+    .catch(() => {
+      const apiError = new ApiErrorResponse(response, StatusCodes.BAD_REQUEST);
+      apiError.sendErrorResponse();
     });
 });
 
 router.delete(`${POST_ENDPOINT}/:id`, (request, response) => {
-  Post.findOneAndDelete({ slug: request.params.slug }).then(() => {
-    response.status(204);
-    response.end();
-  });
+  Post.findOneAndDelete({ slug: request.params.slug }, request.body)
+    .then((data) => {
+      if (!data) {
+        throw new Error("Not found");
+      }
+
+      response.status(StatusCodes.CREATED);
+      response.send();
+    })
+    .catch(() => {
+      const apiError = new ApiErrorResponse(response, StatusCodes.NOT_FOUND);
+      apiError.sendErrorResponse();
+    });
 });
 
 module.exports = router;
