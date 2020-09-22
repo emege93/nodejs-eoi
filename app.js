@@ -1,12 +1,51 @@
-const { response, request } = require("express");
 const express = require("express");
 const bodyParser = require("body-parser");
-const expressSession = require("express-session");
 const mongoose = require('mongoose');
+const passport = require('passport')
+const localStrategy = require('passport-local').Strategy;
+
+const User = require('./models/user');
+
+// PASSPORT
+passport.use('signup', new localStrategy({
+    usernameField: 'email',
+    passwordField: 'password'
+}, async (email, password, next) => {
+    try {
+        const user = await User.create({ email, password})
+        const error = null;
+        return next(null, user);
+    } catch (error) {
+        next(error)
+    }
+}));
+
+passport.use('login', new localStrategy({
+    usernameField: 'email',
+    passwordField: 'password'
+}, async (email, password, next) => {
+    try {
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return next(null, false, {message: 'User not found'});
+        }
+
+        const isValid = await user.isValidPassword(password);
+
+        if (!isValid) {
+            return next(null, false, {message: 'Email or password not valid'});
+        }
+
+        return next(null, user, {message: 'Logged in'});
+    } catch (error) {
+        next(error);
+    }
+}));
 
 const router = require("./router");
 const session = require("express-session");
-const { Mongoose } = require("mongoose");
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,7 +58,7 @@ MongoClient.connect(process.env.MONGO_URL, {useUnifiedTopology: true}, (err, cli
     }
     const mongoClient = client;
     console.log('Connected to Mongo');
-}) 
+})
 const MongoClient = require('mongodb').MongoClient;
 MongoClient.connect(process.env.MONGO_URL, {useUnifiedTopology: true})
 .then(client => console.log('Connected to Database'))
