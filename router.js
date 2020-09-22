@@ -4,6 +4,7 @@ const passport = require("passport");
 const jwt = require("jsonwebtoken");
 
 const router = express.Router();
+const apiRouter = express.Router();
 
 const ApiErrorResponse = require("./api_errors");
 const AuthenticationService = require("./auth");
@@ -74,19 +75,23 @@ router.post(
 );
 
 router.post("/api_login", async (req, res, next) => {
-  passport.authenticate("login", async (err, user, info) => {
+  passport.authenticate("login", async (error, user, info) => {
     try {
-      if (err || !user) {
-        const error = new Error("An Error occurred");
+      if (error) {
         return next(error);
       }
+
+      if (!user) {
+        return next(new Error("no user"));
+      }
+
       req.login(user, { session: false }, async (error) => {
         if (error) return next(error);
         //We don't want to store the sensitive information such as the
         //user password in the token so we pick only the email and id
         const body = { _id: user._id, email: user.email };
         //Sign the JWT token and populate the payload with the user email and id
-        const token = jwt.sign({ user: body }, "top_secret");
+        const token = jwt.sign({ user: body }, process.env.JWT_SECRET);
         //Send back the token to the user
         return res.json({ token });
       });
@@ -96,22 +101,21 @@ router.post("/api_login", async (req, res, next) => {
   })(req, res, next);
 });
 
-
 // POST CRUD API
-const POST_ENDPOINT = "/api/v1/posts";
+const POST_ENDPOINT = "/v1/posts";
 
-router.use((request, response, next) => {
+apiRouter.use((request, response, next) => {
   console.log(`Router Time: ${Date.now()}`);
   next();
 });
 
-router.post(POST_ENDPOINT, (request, response) => {
+apiRouter.post(POST_ENDPOINT, (request, response) => {
   const postObj = new Post(request.body);
   postObj.save((err) => (err ? console.log(err) : null));
   response.send(JSON.stringify(postObj));
 });
 
-router.get(POST_ENDPOINT, (request, response) => {
+apiRouter.get(POST_ENDPOINT, (request, response) => {
   Post.find({})
     .then((data) => {
       console.log(data);
@@ -123,7 +127,7 @@ router.get(POST_ENDPOINT, (request, response) => {
     });
 });
 
-router.get(`${POST_ENDPOINT}/:slug`, (request, response) => {
+apiRouter.get(`${POST_ENDPOINT}/:slug`, (request, response) => {
   Post.findOne({ slug: request.params.slug })
     .then((data) => {
       if (!data) {
@@ -138,7 +142,7 @@ router.get(`${POST_ENDPOINT}/:slug`, (request, response) => {
     });
 });
 
-router.put(`${POST_ENDPOINT}/:slug`, (request, response) => {
+apiRouter.put(`${POST_ENDPOINT}/:slug`, (request, response) => {
   Post.findOneAndUpdate({ slug: request.params.slug }, request.body)
     .then((data) => {
       if (!data) {
@@ -153,7 +157,7 @@ router.put(`${POST_ENDPOINT}/:slug`, (request, response) => {
     });
 });
 
-router.delete(`${POST_ENDPOINT}/:id`, (request, response) => {
+apiRouter.delete(`${POST_ENDPOINT}/:id`, (request, response) => {
   Post.findOneAndDelete({ slug: request.params.slug }, request.body)
     .then((data) => {
       if (!data) {
@@ -169,4 +173,4 @@ router.delete(`${POST_ENDPOINT}/:id`, (request, response) => {
     });
 });
 
-module.exports = router;
+module.exports = {router, apiRouter};
